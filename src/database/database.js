@@ -99,6 +99,78 @@ class DB {
     }
   }
 
+  async listUsers(page = 0, limit = 10, nameFilter = '*') {
+    const connection = await this.getConnection();
+    try {
+      const offset = page * limit;
+      nameFilter = nameFilter.replace(/\*/g, '%');
+      
+      // Get users with roles using string interpolation for LIMIT/OFFSET like other methods
+      const query = `
+        SELECT u.id, u.name, u.email, 
+               GROUP_CONCAT(
+                 CASE 
+                   WHEN ur.objectId = 0 THEN ur.role
+                   ELSE CONCAT(ur.role, ':', ur.objectId)
+                 END
+               ) as roles
+        FROM user u
+        LEFT JOIN userRole ur ON u.id = ur.userId
+        WHERE u.name LIKE ?
+        GROUP BY u.id, u.name, u.email
+        ORDER BY u.name
+        LIMIT ${limit + 1} OFFSET ${offset}
+      `;
+      
+      const rows = await this.query(connection, query, [nameFilter]);
+      
+      const more = rows.length > limit;
+      const users = (more ? rows.slice(0, limit) : rows).map(row => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        roles: row.roles ? row.roles.split(',').map(roleStr => {
+          if (roleStr.includes(':')) {
+            const [role, objectId] = roleStr.split(':');
+            return { role, objectId: parseInt(objectId) };
+          }
+          return { role: roleStr };
+        }) : []
+      }));
+      
+      return {
+        users,
+        more
+      };
+    } finally {
+      connection.end();
+    }
+  }
+
+  async deleteUser(userId) {
+    const connection = await this.getConnection();
+    try {
+      // First check if user exists
+      const userExists = await this.query(connection, `SELECT id FROM user WHERE id = ?`, [userId]);
+      if (userExists.length === 0) {
+        return false;
+      }
+      
+      // Delete user roles first (foreign key constraint)
+      await this.query(connection, `DELETE FROM userRole WHERE userId = ?`, [userId]);
+      
+      // Delete auth tokens
+      await this.query(connection, `DELETE FROM auth WHERE userId = ?`, [userId]);
+      
+      // Delete the user
+      await this.query(connection, `DELETE FROM user WHERE id = ?`, [userId]);
+      
+      return true;
+    } finally {
+      connection.end();
+    }
+  }
+
   async loginUser(userId, token) {
     token = this.getTokenSignature(token);
     const connection = await this.getConnection();
