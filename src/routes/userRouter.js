@@ -124,4 +124,22 @@ userRouter.put(
   })
 );
 
+// deleteUser
+userRouter.delete(
+  '/:userId',
+  authRouter.authenticateToken,
+  asyncHandler(async (req, res) => {
+    res.json({ message: 'not implemented' });
+  })
+);
+
+// listUsers
+userRouter.get(
+  '/',
+  authRouter.authenticateToken,
+  asyncHandler(async (req, res) => {
+    res.json({ message: 'not implemented', users: [], more: false });
+  })
+);
+
 module.exports = userRouter;
