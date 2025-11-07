@@ -38,8 +38,10 @@ jobs:
 
       - name: Write config file
         run: |
-          echo "module.exports = {
-            jwtSecret: \"${{ secrets.JWT_SECRET }}\",
+          node << 'NODE_SCRIPT'
+          const fs = require('fs');
+          const config = {
+            jwtSecret: process.env.JWT_SECRET,
             db: {
               connection: {
                 host: '127.0.0.1',
@@ -52,14 +54,22 @@ jobs:
             },
             factory: {
               url: 'https://pizza-factory.cs329.click',
-              apiKey: \"${{ secrets.FACTORY_API_KEY }}\",
+              apiKey: process.env.FACTORY_API_KEY,
             },
             metrics: {
               source: 'jwt-pizza-service',
-              url: \"${{ secrets.METRICS_URL }}\",
-              apiKey: \"${{ secrets.METRICS_API_KEY }}\",
+              url: process.env.METRICS_URL,
+              apiKey: process.env.METRICS_API_KEY,
             },
-          };" > src/config.js
+          };
+          const configString = 'module.exports = ' + JSON.stringify(config, null, 2) + ';';
+          fs.writeFileSync('src/config.js', configString);
+          NODE_SCRIPT
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
+          METRICS_URL: ${{ secrets.METRICS_URL }}
+          METRICS_API_KEY: ${{ secrets.METRICS_API_KEY }}
 
       - name: Tests
         run: npm test
