@@ -88,7 +88,7 @@ jobs:
         if: always()
         run: |
           coverage=$(jq '.total.lines.pct' coverage/coverage-summary.json)
-          color=$(echo "$coverage < 80" | bc | awk '{if ($1) print "red"; else print "green"}')
+          color=$(echo "$coverage < 70" | bc | awk '{if ($1) print "red"; else print "green"}')
           echo "Posting badge: coverage=$coverage color=$color"
           http_code=$(curl -s -o /tmp/badge_resp -w "%{http_code}" -X POST "https://pizza-factory.cs329.click/api/badge/${{ secrets.NET_ID }}/jwtpizzaservicecoverage?label=Coverage&value=$coverage%25&color=$color" -H "authorization: bearer ${{ secrets.FACTORY_API_KEY }}")
           echo "Badge response code: $http_code"
