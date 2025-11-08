@@ -5,32 +5,35 @@ const os = require('os');
 const requests = {}; // { method: count }
 let endpointLatencies = []; // Array of { endpoint, latency }
 const activeUsers = new Set(); // Set of user IDs
+
+// Counters (monotonic, cumulative)
 let authSuccessCount = 0;
 let authFailureCount = 0;
+
 let pizzaSoldCount = 0;
 let pizzaCreationFailures = 0;
-let pizzaRevenue = 0; // Total revenue in the reporting period
+let pizzaRevenue = 0; // Total cumulative revenue
+
 let pizzaCreationLatencies = []; // Array of latencies in ms
 
 // Middleware to track HTTP requests
 function requestTracker(req, res, next) {
   const startTime = Date.now();
   const method = req.method;
-  
-  // Track request count by method
+
+  // Track request count by method (cumulative forever)
   requests[method] = (requests[method] || 0) + 1;
-  
-  // Track latency
+
   res.on('finish', () => {
     const latency = Date.now() - startTime;
     const endpoint = `${req.method} ${req.path}`;
     endpointLatencies.push({ endpoint, latency });
-    // Keep only last 1000 latencies to avoid memory issues
+
     if (endpointLatencies.length > 1000) {
       endpointLatencies.shift();
     }
   });
-  
+
   next();
 }
 
@@ -60,18 +63,18 @@ function trackPizzaPurchase(success, latency, price) {
     pizzaRevenue += price || 0;
   } else {
     pizzaCreationFailures++;
+    console.log(`[Metrics] Tracked pizza failure. Total failures: ${pizzaCreationFailures}`);
   }
-  
+
   if (latency !== undefined) {
     pizzaCreationLatencies.push(latency);
-    // Keep only last 1000 latencies
     if (pizzaCreationLatencies.length > 1000) {
       pizzaCreationLatencies.shift();
     }
   }
 }
 
-// Get system metrics
+// System metrics
 function getCpuUsagePercentage() {
   const cpuUsage = os.loadavg()[0] / os.cpus().length;
   return Math.min(100, Math.max(0, cpuUsage * 100));
@@ -141,7 +144,6 @@ function sendMetricToGrafana(metrics) {
     ],
   };
 
-  // Use Basic auth if API key contains ':', otherwise use Bearer
   const authHeader = config.metrics.apiKey.includes(':')
     ? `Basic ${Buffer.from(config.metrics.apiKey).toString('base64')}`
     : `Bearer ${config.metrics.apiKey}`;
@@ -173,54 +175,60 @@ function sendMetricsPeriodically(period = 10000) {
     try {
       const metrics = [];
 
-      // HTTP requests by method
+      //
+      // HTTP REQUESTS (cumulative)
+      //
       Object.keys(requests).forEach((method) => {
-        metrics.push(createMetric('http_requests_total', requests[method], '1', 'sum', 'asInt', { method }));
+        metrics.push(createMetric(
+          'http_requests_total',
+          requests[method],
+          '1',
+          'sum',
+          'asInt',
+          { method }
+        ));
       });
 
-      // Total requests
-      const totalRequests = Object.values(requests).reduce((sum, count) => sum + count, 0);
-      if (totalRequests > 0) {
-        metrics.push(createMetric('http_requests_total', totalRequests, '1', 'sum', 'asInt', { method: 'ALL' }));
-      }
+      const totalRequests = Object.values(requests).reduce((a, b) => a + b, 0);
+      metrics.push(createMetric(
+        'http_requests_total',
+        totalRequests,
+        '1',
+        'sum',
+        'asInt',
+        { method: 'ALL' }
+      ));
 
-      // Active users
+      //
+      // ACTIVE USERS (gauge)
+      //
       metrics.push(createMetric('active_users', activeUsers.size, '1', 'gauge', 'asInt', {}));
-      console.log(`[Metrics] Active users: ${activeUsers.size}`);
 
-      // Authentication metrics
-      if (authSuccessCount > 0) {
-        metrics.push(createMetric('auth_attempts_total', authSuccessCount, '1', 'sum', 'asInt', { status: 'success' }));
-      }
-      if (authFailureCount > 0) {
-        metrics.push(createMetric('auth_attempts_total', authFailureCount, '1', 'sum', 'asInt', { status: 'failure' }));
-      }
+      //
+      // AUTH COUNTERS (cumulative)
+      //
+      metrics.push(createMetric('auth_attempts_total', authSuccessCount, '1', 'sum', 'asInt', { status: 'success' }));
+      metrics.push(createMetric('auth_attempts_total', authFailureCount, '1', 'sum', 'asInt', { status: 'failure' }));
 
-      // System metrics
-      const cpuUsage = getCpuUsagePercentage();
-      const memoryUsage = getMemoryUsagePercentage();
-      metrics.push(createMetric('cpu_usage_percent', cpuUsage, '%', 'gauge', 'asDouble', {}));
-      metrics.push(createMetric('memory_usage_percent', memoryUsage, '%', 'gauge', 'asDouble', {}));
-      console.log(`[Metrics] CPU: ${cpuUsage.toFixed(2)}%, Memory: ${memoryUsage.toFixed(2)}%`);
+      //
+      // SYSTEM METRICS (gauges)
+      //
+      metrics.push(createMetric('cpu_usage_percent', getCpuUsagePercentage(), '%', 'gauge', 'asDouble', {}));
+      metrics.push(createMetric('memory_usage_percent', getMemoryUsagePercentage(), '%', 'gauge', 'asDouble', {}));
 
-      // Pizza metrics
-      if (pizzaSoldCount > 0) {
-        metrics.push(createMetric('pizza_sold_total', pizzaSoldCount, '1', 'sum', 'asInt', {}));
-      }
-      if (pizzaCreationFailures > 0) {
-        metrics.push(createMetric('pizza_creation_failures_total', pizzaCreationFailures, '1', 'sum', 'asInt', {}));
-      }
-      if (pizzaRevenue > 0) {
-        metrics.push(createMetric('pizza_revenue_total', pizzaRevenue, '1', 'sum', 'asDouble', {}));
-      }
+      //
+      // PIZZA METRICS (cumulative — ALWAYS SENT)
+      //
+      metrics.push(createMetric('pizza_sold_total', pizzaSoldCount, '1', 'sum', 'asInt', {}));
+      metrics.push(createMetric('pizza_creation_failures_total', pizzaCreationFailures, '1', 'sum', 'asInt', {}));
+      metrics.push(createMetric('pizza_revenue_total', pizzaRevenue, '1', 'sum', 'asDouble', {}));
 
-      // Latency metrics
+      //
+      // LATENCY METRICS (gauges)
+      //
       const avgEndpointLatency = getAverageLatency(endpointLatencies);
       if (avgEndpointLatency > 0) {
         metrics.push(createMetric('endpoint_latency_ms', avgEndpointLatency, 'ms', 'gauge', 'asInt', {}));
-        console.log(`[Metrics] Endpoint latency: ${avgEndpointLatency}ms (from ${endpointLatencies.length} requests)`);
-      } else {
-        console.log(`[Metrics] No endpoint latency data (${endpointLatencies.length} latencies recorded)`);
       }
 
       const avgPizzaLatency = getAverageLatency(pizzaCreationLatencies);
@@ -230,28 +238,12 @@ function sendMetricsPeriodically(period = 10000) {
 
       sendMetricToGrafana(metrics);
 
-      // Reset counters for next period
-      // Reset request counts
-      Object.keys(requests).forEach((method) => {
-        requests[method] = 0;
-      });
-      
-      // Reset auth counters
-      authSuccessCount = 0;
-      authFailureCount = 0;
-      
-      // Reset pizza counters
-      pizzaSoldCount = 0;
-      pizzaCreationFailures = 0;
-      pizzaRevenue = 0;
-      
-      // Clear latency arrays (keep recent data for averaging)
-      if (endpointLatencies.length > 100) {
-        endpointLatencies = endpointLatencies.slice(-50); // Keep last 50
-      }
-      if (pizzaCreationLatencies.length > 100) {
-        pizzaCreationLatencies = pizzaCreationLatencies.slice(-50); // Keep last 50
-      }
+      // Keep latency arrays small
+      if (endpointLatencies.length > 100) endpointLatencies = endpointLatencies.slice(-50);
+      if (pizzaCreationLatencies.length > 100) pizzaCreationLatencies = pizzaCreationLatencies.slice(-50);
+
+      // NOTE: NO COUNTERS ARE EVER RESET NOW (correct Prometheus-style)
+
     } catch (error) {
       console.error('Error sending metrics:', error);
     }
@@ -278,4 +270,3 @@ module.exports = {
   trackPizzaPurchase,
   startMetricsReporting,
 };
-
