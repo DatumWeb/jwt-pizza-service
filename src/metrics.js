@@ -63,7 +63,6 @@ function trackPizzaPurchase(success, latency, price) {
     pizzaRevenue += price || 0;
   } else {
     pizzaCreationFailures++;
-    console.log(`[Metrics] Tracked pizza failure. Total failures: ${pizzaCreationFailures}`);
   }
 
   if (latency !== undefined) {
@@ -160,8 +159,6 @@ function sendMetricToGrafana(metrics) {
           console.error(`Response: ${text}`);
           throw new Error(`HTTP status: ${response.status} - ${text}`);
         });
-      } else {
-        console.log(`Successfully sent ${metrics.length} metrics to Grafana`);
       }
     })
     .catch((error) => {
@@ -255,7 +252,7 @@ function sendMetricsPeriodically(period = 10000) {
 // Start periodic reporting
 let metricsTimer = null;
 
-function startMetricsReporting(period = 10000) {
+function startMetricsReporting(period = 60000) {
   if (metricsTimer) {
     clearInterval(metricsTimer);
   }

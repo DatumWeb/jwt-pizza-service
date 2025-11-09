@@ -100,7 +100,6 @@ orderRouter.post(
       res.send({ order, followLinkToEndChaos: j.reportUrl, jwt: j.jwt });
     } else {
       // Track failed pizza purchase
-      console.log(`[Metrics] Pizza order failed: status=${r.status}, items=${order.items.length}`);
       metrics.trackPizzaPurchase(false, latency, 0);
       res.status(500).send({ message: 'Failed to fulfill order at factory', followLinkToEndChaos: j.reportUrl });
     }
