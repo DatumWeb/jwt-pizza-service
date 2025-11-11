@@ -4,6 +4,7 @@ const { Role, DB } = require('../database/database.js');
 const { authRouter } = require('./authRouter.js');
 const { asyncHandler, StatusCodeError } = require('../endpointHelper.js');
 const metrics = require('../metrics.js');
+const logger = require('../logger.js');
 
 const orderRouter = express.Router();
 
@@ -84,24 +85,39 @@ orderRouter.post(
     // Calculate total price for metrics
     const totalPrice = order.items.reduce((sum, item) => sum + (item.price || 0), 0);
     
+    // Prepare factory request body
+    const factoryRequestBody = { diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order };
+    
     // Track pizza creation latency
     const startTime = Date.now();
-    const r = await fetch(`${config.factory.url}/api/order`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', authorization: `Bearer ${config.factory.apiKey}` },
-      body: JSON.stringify({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order }),
-    });
-    const latency = Date.now() - startTime;
+    let factoryResponse;
     
-    const j = await r.json();
-    if (r.ok) {
-      // Track successful pizza purchase
-      metrics.trackPizzaPurchase(true, latency, totalPrice);
-      res.send({ order, followLinkToEndChaos: j.reportUrl, jwt: j.jwt });
-    } else {
-      // Track failed pizza purchase
-      metrics.trackPizzaPurchase(false, latency, 0);
-      res.status(500).send({ message: 'Failed to fulfill order at factory', followLinkToEndChaos: j.reportUrl });
+    try {
+      const r = await fetch(`${config.factory.url}/api/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', authorization: `Bearer ${config.factory.apiKey}` },
+        body: JSON.stringify(factoryRequestBody),
+      });
+      const latency = Date.now() - startTime;
+      
+      factoryResponse = await r.json();
+      
+      // Log factory request and response
+      logger.factoryLog(factoryRequestBody, factoryResponse, r.status, null);
+      
+      if (r.ok) {
+        // Track successful pizza purchase
+        metrics.trackPizzaPurchase(true, latency, totalPrice);
+        res.send({ order, followLinkToEndChaos: factoryResponse.reportUrl, jwt: factoryResponse.jwt });
+      } else {
+        // Track failed pizza purchase
+        metrics.trackPizzaPurchase(false, latency, 0);
+        res.status(500).send({ message: 'Failed to fulfill order at factory', followLinkToEndChaos: factoryResponse.reportUrl });
+      }
+    } catch (error) {
+      // Log factory error
+      logger.factoryLog(factoryRequestBody, null, null, error);
+      throw error;
     }
   })
 );

@@ -61,6 +61,12 @@ jobs:
               url: process.env.METRICS_URL,
               apiKey: process.env.METRICS_API_KEY,
             },
+            logging: {
+              source: 'jwt-pizza-service',
+              userId: parseInt(process.env.LOGGING_USER_ID),
+              url: process.env.LOGGING_URL,
+              apiKey: process.env.LOGGING_API_KEY,
+            },
           };
           const configString = 'module.exports = ' + JSON.stringify(config, null, 2) + ';';
           fs.writeFileSync('src/config.js', configString);
@@ -70,6 +76,9 @@ jobs:
           FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
           METRICS_URL: ${{ secrets.METRICS_URL }}
           METRICS_API_KEY: ${{ secrets.METRICS_API_KEY }}
+          LOGGING_USER_ID: ${{ secrets.LOGGING_USER_ID }}
+          LOGGING_URL: ${{ secrets.LOGGING_URL }}
+          LOGGING_API_KEY: ${{ secrets.LOGGING_API_KEY }}
 
       - name: Tests
         run: npm test
