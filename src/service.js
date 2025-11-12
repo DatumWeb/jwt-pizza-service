@@ -36,6 +36,28 @@ apiRouter.use('/docs', (req, res) => {
   });
 });
 
+// Debug endpoint to test logging
+apiRouter.get('/debug/logging', (req, res) => {
+  const hasLoggingConfig = !!(config.logging && config.logging.url && config.logging.apiKey);
+  logger.log('info', 'debug', { 
+    message: 'Logging test endpoint called',
+    hasLoggingConfig,
+    loggingUrl: config.logging?.url ? 'configured' : 'missing',
+    loggingUserId: config.logging?.userId || 'missing',
+    timestamp: new Date().toISOString()
+  });
+  res.json({
+    status: 'ok',
+    logging: {
+      configured: hasLoggingConfig,
+      url: config.logging?.url ? 'configured' : 'missing',
+      userId: config.logging?.userId || 'missing',
+      source: config.logging?.source || 'missing',
+    },
+    message: 'Test log sent to Grafana. Check Grafana Explorer with component="jwt-pizza-service" and type="debug"'
+  });
+});
+
 app.get('/', (req, res) => {
   res.json({
     message: 'welcome to JWT Pizza',

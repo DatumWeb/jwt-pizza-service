@@ -134,6 +134,12 @@ class Logger {
 
   // Send log event to Grafana Loki
   sendLogToGrafana(event) {
+    // Check if logging is configured
+    if (!config.logging || !config.logging.url || !config.logging.apiKey) {
+      console.error('[Logger] Logging not configured. Missing config.logging.url or config.logging.apiKey');
+      return;
+    }
+
     const body = JSON.stringify(event);
     fetch(`${config.logging.url}`, {
       method: 'post',
@@ -145,15 +151,17 @@ class Logger {
     })
       .then((response) => {
         if (!response.ok) {
-          console.error(`Failed to send log to Grafana. Status: ${response.status}`);
+          console.error(`[Logger] Failed to send log to Grafana. Status: ${response.status}, URL: ${config.logging.url}`);
           return response.text().then((text) => {
-            console.error(`Response: ${text}`);
+            console.error(`[Logger] Response: ${text.substring(0, 200)}`);
           });
         }
       })
       .catch((error) => {
         // Log errors to help debug
-        console.error('Failed to send log to Grafana:', error.message);
+        console.error(`[Logger] Failed to send log to Grafana: ${error.message}`);
+        console.error(`[Logger] URL: ${config.logging.url}`);
+        console.error(`[Logger] Error details:`, error);
       });
   }
 }
