@@ -58,6 +58,17 @@ apiRouter.get('/debug/logging', (req, res) => {
   });
 });
 
+// Debug endpoint to confirm metrics are active
+apiRouter.get('/debug/metrics', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Metrics reporting active',
+    nextPush: 'within 60s',
+    source: config.metrics.source,
+    url: config.metrics.url,
+  });
+});
+
 app.get('/', (req, res) => {
   res.json({
     message: 'welcome to JWT Pizza',
