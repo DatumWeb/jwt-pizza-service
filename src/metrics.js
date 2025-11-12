@@ -155,14 +155,16 @@ function sendMetricToGrafana(metrics) {
     .then((response) => {
       if (!response.ok) {
         return response.text().then((text) => {
-          console.error(`Failed to push metrics. Status: ${response.status}`);
-          console.error(`Response: ${text}`);
+          console.error(`[Metrics] Failed to push metrics. Status: ${response.status}`);
+          console.error(`[Metrics] Response: ${text}`);
           throw new Error(`HTTP status: ${response.status} - ${text}`);
         });
+      } else {
+        console.error(`[Metrics] Successfully pushed ${metrics.length} metrics to Grafana`);
       }
     })
     .catch((error) => {
-      console.error('Error pushing metrics:', error.message);
+      console.error(`[Metrics] Error pushing metrics: ${error.message}`);
     });
 }
 
@@ -234,6 +236,7 @@ function sendMetricsPeriodically(period = 10000) {
       }
 
       sendMetricToGrafana(metrics);
+      console.error(`[Metrics] Sent ${metrics.length} metrics at ${new Date().toISOString()}`);
 
       // Keep latency arrays small
       if (endpointLatencies.length > 100) endpointLatencies = endpointLatencies.slice(-50);
