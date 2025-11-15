@@ -5,8 +5,8 @@ class Logger {
   httpLogger = (req, res, next) => {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   
-    const originalSend = res.send;
-    res.send = (body) => {
+    // Shared logging function
+    const logResponse = (body) => {
       let parsed;
       try {
         parsed = typeof body === 'string' ? JSON.parse(body) : body;
@@ -26,9 +26,22 @@ class Logger {
   
       const level = this.statusToLogLevel(res.statusCode);
       this.log(level, 'http', logData);
+    };
   
+    // Wrap res.send() to log all responses sent via res.send()
+    const originalSend = res.send;
+    res.send = (body) => {
+      logResponse(body);
       res.send = originalSend;
       return originalSend.call(res, body);
+    };
+  
+    // Wrap res.json() to log all responses sent via res.json()
+    const originalJson = res.json;
+    res.json = (body) => {
+      logResponse(body);
+      res.json = originalJson;
+      return originalJson.call(res, body);
     };
   
     next();
