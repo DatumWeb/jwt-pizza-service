@@ -64,7 +64,13 @@
       "id": 8,
       "options": {
         "cellHeight": "sm",
-        "showHeader": true
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Time"
+          }
+        ]
       },
       "pluginVersion": "12.4.0-19174562009.patch3",
       "targets": [
@@ -684,6 +690,7 @@
     }
   ],
   "preload": false,
+  "refresh": "5s",
   "schemaVersion": 42,
   "tags": [],
   "templating": {
@@ -697,5 +704,5 @@
   "timezone": "browser",
   "title": "Pizza Dashboard",
   "uid": "ld9nrbz",
-  "version": 32
+  "version": 34
 }
