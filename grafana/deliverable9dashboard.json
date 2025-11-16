@@ -53,13 +53,183 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "level"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 553
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "res"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 946
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "req"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 613
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 317
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 12,
         "w": 24,
         "x": 0,
         "y": 0
+      },
+      "id": 9,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Time"
+          }
+        ]
+      },
+      "pluginVersion": "12.4.0-19174562009.patch3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "grafanacloud-logs"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "{component=\"jwt-pizza-service\", type=\"http\"}\r\n| regexp `\"req\":(?P<req_raw>\\{.*\\}|\\[\\])`\r\n| regexp `\"res\":(?P<res_raw>(\\[[\\s\\S]*\\]|\\{.*\\}))`\r\n| label_format req=\"{{ .req_raw }}\"\r\n| label_format res=\"{{ .res_raw }}\"\r\n",
+          "key": "Q-6832d3e7-2e6c-42c2-99dc-d5d6fa99afa8-0",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Response Body and Req Body",
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "labels"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "includeByName": {
+              "Line": true,
+              "Time": true,
+              "level": true,
+              "req": true,
+              "res": true
+            },
+            "indexByName": {
+              "Line": 4,
+              "Time": 0,
+              "level": 3,
+              "req": 1,
+              "res": 2
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "grafanacloud-logs"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ip"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 245
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 236
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 12
       },
       "id": 8,
       "options": {
@@ -80,7 +250,7 @@
             "uid": "grafanacloud-logs"
           },
           "direction": "backward",
-          "editorMode": "builder",
+          "editorMode": "code",
           "expr": "{component=\"jwt-pizza-service\"} |= `` | json",
           "queryType": "range",
           "refId": "A"
@@ -194,7 +364,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 22
       },
       "id": 6,
       "options": {
@@ -268,7 +438,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 22
       },
       "id": 5,
       "options": {
@@ -366,7 +536,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 30
       },
       "id": 4,
       "options": {
@@ -439,7 +609,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 16
+        "y": 30
       },
       "id": 3,
       "options": {
@@ -548,7 +718,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 38
       },
       "id": 2,
       "options": {
@@ -655,7 +825,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 38
       },
       "id": 1,
       "options": {
@@ -690,7 +860,7 @@
     }
   ],
   "preload": false,
-  "refresh": "5s",
+  "refresh": "10s",
   "schemaVersion": 42,
   "tags": [],
   "templating": {
@@ -704,5 +874,5 @@
   "timezone": "browser",
   "title": "Pizza Dashboard",
   "uid": "ld9nrbz",
-  "version": 34
+  "version": 44
 }
