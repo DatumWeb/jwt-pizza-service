@@ -4,42 +4,70 @@ class Logger {
 
   httpLogger = (req, res, next) => {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let responseBody = null;
+    let responseLogged = false;
 
-    const logResponse = (body) => {
-      let parsed = body;
+    const logResponse = () => {
+      if (responseLogged) return;
+      responseLogged = true;
+      
       try {
-        parsed = typeof body === 'string' ? JSON.parse(body) : body;
-      } catch {
-        // If parsing fails, use original body (may not be JSON)
+        const logData = {
+          authorized: !!req.headers.authorization,
+          method: req.method,
+          path: req.originalUrl,
+          status: res.statusCode || 200,
+          ip,
+          req: req.body || null,
+          res: responseBody
+        };
+
+        const level = this.statusToLogLevel(res.statusCode || 200);
+        this.log(level, "http", logData);
+      } catch (error) {
+        // Don't let logging errors break the response
+        console.error("[Logger] Error in logResponse:", error.message);
       }
-
-      const logData = {
-        authorized: !!req.headers.authorization,
-        method: req.method,
-        path: req.originalUrl,
-        status: res.statusCode,
-        ip,
-        req: req.body,
-        res: parsed
-      };
-
-      const level = this.statusToLogLevel(res.statusCode);
-      this.log(level, "http", logData);
     };
 
-    const originalSend = res.send;
-    res.send = (body) => {
-      logResponse(body);
-      res.send = originalSend;
-      return originalSend.call(res, body);
+    const originalSend = res.send.bind(res);
+    res.send = function(body) {
+      try {
+        // Capture response body
+        if (body !== undefined && body !== null) {
+          try {
+            responseBody = typeof body === 'string' ? JSON.parse(body) : body;
+          } catch {
+            responseBody = body;
+          }
+        }
+      } catch {
+        // Ignore parsing errors
+      }
+      const result = originalSend(body);
+      setImmediate(logResponse);
+      return result;
     };
 
-    const originalJson = res.json;
-    res.json = (body) => {
-      logResponse(body);
-      res.json = originalJson;
-      return originalJson.call(res, body);
+    const originalJson = res.json.bind(res);
+    res.json = function(body) {
+      try {
+        // Capture response body
+        responseBody = body;
+      } catch {
+        // Ignore errors
+      }
+      const result = originalJson(body);
+      setImmediate(logResponse);
+      return result;
     };
+
+    // Backup: log on response finish
+    res.on('finish', () => {
+      if (!responseLogged) {
+        logResponse();
+      }
+    });
 
     next();
   };
