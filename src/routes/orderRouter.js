@@ -8,6 +8,9 @@ const logger = require('../logger.js');
 
 const orderRouter = express.Router();
 
+// Chaos testing state
+let enableChaos = false;
+
 orderRouter.docs = [
   {
     method: 'GET',
@@ -74,11 +77,30 @@ orderRouter.get(
   })
 );
 
+// chaos endpoint - only admins can enable/disable chaos
+orderRouter.put(
+  '/chaos/:state',
+  authRouter.authenticateToken,
+  asyncHandler(async (req, res) => {
+    if (req.user.isRole(Role.Admin)) {
+      enableChaos = req.params.state === 'true';
+      res.json({ chaos: enableChaos });
+    } else {
+      throw new StatusCodeError('unauthorized', 403);
+    }
+  })
+);
+
 // createOrder
 orderRouter.post(
   '/',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
+    // Chaos injection: randomly fail 50% of orders when chaos is enabled
+    if (enableChaos && Math.random() < 0.5) {
+      throw new StatusCodeError('Chaos monkey', 500);
+    }
+    
     const orderReq = req.body;
     const order = await DB.addDinerOrder(req.user, orderReq);
     
